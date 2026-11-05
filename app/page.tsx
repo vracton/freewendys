@@ -1,28 +1,173 @@
 "use client";
-import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Check, ChevronDown, Copy, Download, ExternalLink, LoaderCircle, QrCode, RotateCcw, ShieldCheck, Sparkles, X } from 'lucide-react';
-import { OFFERS } from '../lib/offers';
-type Availability={status:'active'|'unavailable'|'ended';message:string};
-type Reward={code:string;qr:string;index:number};
-export default function Home(){
- const [selected,setSelected]=useState(0),[availability,setAvailability]=useState<Availability|null>(null),[checking,setChecking]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[reward,setReward]=useState<Reward|null>(null),[copied,setCopied]=useState(false),[saved,setSaved]=useState<Record<string,Reward>>({});
- const dialog=useRef<HTMLDialogElement>(null),claimButton=useRef<HTMLButtonElement>(null);
- async function checkAvailability(){setChecking(true);setError('');try{const r=await fetch('/api/offers',{cache:'no-store'}),d=await r.json() as Availability & {error?:string};if(!r.ok)throw Error(d.error||'Could not check rewards. Please try again.');setAvailability(d)}catch(e){setAvailability(null);setError(e instanceof Error?e.message:'Connection lost. Please try again.')}finally{setChecking(false)}}
- useEffect(()=>{checkAvailability();try{const data=JSON.parse(localStorage.getItem('freewendys-rewards-v1')||'{}');if(data&&typeof data==='object')setSaved(data)}catch{}},[]);
- useEffect(()=>{if(reward){dialog.current?.showModal();setCopied(false)}else dialog.current?.close()},[reward]);
- async function claim(){if(saved[selected]){setReward(saved[selected]);return}if(busy||availability?.status!=='active')return;setBusy(true);setError('');try{const r=await fetch('/api/claim',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index:selected})}),d=await r.json() as {error?:string;status?:Availability['status'];code:string;qr:string};if(!r.ok){if(d.status)setAvailability({status:d.status,message:d.error||'Rewards are unavailable.'});throw Error(d.error||'This reward could not be claimed. Please try again.')}const next={code:d.code,qr:d.qr,index:selected},all={...saved,[selected]:next};setSaved(all);setReward(next);try{localStorage.setItem('freewendys-rewards-v1',JSON.stringify(all))}catch{}}catch(e){setError(e instanceof Error?e.message:'Connection lost. Please try again.')}finally{setBusy(false)}}
- async function copyCode(){if(!reward)return;try{await navigator.clipboard.writeText(reward.code);setCopied(true)}catch{setCopied(false)}}
- function downloadQr(){if(!reward)return;const url=URL.createObjectURL(new Blob([reward.qr],{type:'image/svg+xml'})),a=document.createElement('a');a.href=url;a.download=OFFERS[reward.index].slug+'-reward.svg';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
- const offer=OFFERS[selected],ready=availability?.status==='active',hasSaved=!!saved[selected];
- return <div className="site-shell">
- <header className="header wrap"><a className="brand" href="/" aria-label="Free Wendy's home"><span className="brand-emblem" aria-hidden="true"><img src="/game/fries-stone.png" alt=""/></span><span>FREE WENDY’S<span className="brand-sub">THE REWARD QUEST</span></span></a><a className="header-link" href="#how-it-works">How it works <ArrowRight size={15}/></a></header>
- <main><section className="hero wrap" aria-labelledby="hero-title"><div className="hero-copy"><p className="eyebrow">✦ &nbsp; YOUR NEXT SIDE QUEST</p><h1 id="hero-title">A little quest.<br/><span>A tasty reward.</span></h1><p className="hero-description">Five legendary picks. One delicious decision.<br/>Choose your favorite and unlock a reward code.</p><a href="#rewards" className="hero-anchor">Find your reward <ChevronDown size={16}/></a></div><div className="hero-art" aria-hidden="true"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><span className="art-star star-one">✧</span><span className="art-star star-two">✦</span><span className="art-star star-three">✧</span><div className="hero-food hero-fries"><img src="/game/fries-food.png" alt=""/></div><div className="hero-food hero-beef"><img src="/game/beef-food.png" alt=""/></div><div className="hero-food hero-frosty"><img src="/game/frosty-food.png" alt=""/></div><div className="hero-caption"><Sparkles size={13}/> GOOD TASTE. GREAT LOOT.</div></div></section>
- <section className="reward-panel wrap" id="rewards" aria-labelledby="rewards-title"><div className="panel-topline"><span className="eyebrow">THE REWARD INVENTORY</span><span className={'availability '+(ready?'active':'')} role="status"><i/>{checking?'Checking promotion…':ready?'Promotion active':availability?.status==='ended'?'Promotion ended':availability?.status==='unavailable'?'Rewards unavailable':'Connection unavailable'}</span></div><div className="panel-heading"><div><h2 id="rewards-title">Choose your reward</h2><p>Pick a stone. Reveal something delicious.</p></div><span className="selection-counter">01 <span>/ SELECT</span></span></div>
- <div className="reward-grid" role="group" aria-label="Choose one of five rewards">{OFFERS.map((item,index)=><button key={item.slug} type="button" className={'reward-card '+(selected===index?'selected':'')} aria-pressed={selected===index} disabled={busy} onClick={()=>{setSelected(index);setError('')}} style={{'--accent':item.color} as React.CSSProperties}><span className="card-number">0{index+1}</span><span className="selection-mark">{selected===index&&<Check size={13} strokeWidth={3}/>}</span><span className="food-stage"><span className="food-glow"/><img className="food-icon" src={'/game/'+item.slug+'-food.png'} alt=""/></span><span className="card-category">{item.category}</span><span className="card-title">{item.name}</span><span className="card-description">{item.description}</span><span className="stone-badge"><img src={'/game/'+item.slug+'-stone.png'} alt=""/>{saved[index]?'CODE SAVED':item.stone}</span></button>)}</div>
- <div className="claim-bar"><div className="chosen"><img src={'/game/'+offer.slug+'-stone.png'} alt=""/><div><span>YOUR SELECTED REWARD</span><strong>{offer.name}</strong></div></div><button ref={claimButton} className="primary-button" disabled={busy||(!hasSaved&&(checking||!ready))} onClick={claim}>{busy?<><LoaderCircle className="spin" size={18}/> Unlocking your reward…</>:hasSaved?<>View saved code <QrCode size={19}/></>:<>Claim my reward <ArrowRight size={19}/></>}</button></div><div className="panel-note"><ShieldCheck size={14}/><span>Availability is confirmed when you claim. No purchase is made here.</span></div>
- {error&&<div className="message error" role="alert">{error}<button className="text-button" disabled={checking||busy} onClick={checkAvailability}><RotateCcw size={13}/> Check again</button></div>}{!checking&&availability&&!ready&&<div className="message" role="status">{availability.message}<button className="text-button" onClick={checkAvailability}><RotateCcw size={13}/> Refresh availability</button></div>}</section>
- <section className="how-section wrap" id="how-it-works" aria-labelledby="how-title"><div className="how-heading"><p className="eyebrow">FROM QUEST TO CRAVING</p><h2 id="how-title">Three steps to tasty.</h2></div><div className="steps"><div className="step"><span>01</span><div><h3>Pick your favorite</h3><p>Choose one of the five reward stones.</p></div></div><div className="step"><span>02</span><div><h3>Unlock your code</h3><p>Claim a code while rewards are available.</p></div></div><div className="step"><span>03</span><div><h3>Make it delicious</h3><p>Copy your code and redeem in the Wendy’s app.</p></div></div></div></section>
- <section className="faq wrap" aria-label="Reward questions"><details><summary>How do I use the QR code?<ChevronDown size={16}/></summary><p>The QR contains your reward code as text. Scan it to read the code, or copy the code and enter it in the Wendy’s app. It is not a verified checkout barcode.</p></details><details><summary>Are all five rewards guaranteed?<ChevronDown size={16}/></summary><p>No. Promotion status and individual code availability come from the reward server. Exact items, sizes, eligibility, expiration, and redemption terms are determined by the promotion and the Wendy’s app.</p></details></section></main>
- <footer className="footer wrap"><span>Made with 🍔 by <a href="https://github.com/vracton/freewendys" target="_blank" rel="noreferrer">vracton <ExternalLink size={11}/></a></span><span className="footer-note">A community-built reward page. Not affiliated with or endorsed by Wendy’s.</span><a href="https://github.com/vracton/freewendys" target="_blank" rel="noreferrer">View source <ArrowRight size={12}/></a></footer>
- <dialog ref={dialog} className="reward-dialog" onCancel={()=>setReward(null)} onClose={()=>{setReward(null);claimButton.current?.focus()}} onClick={e=>{if(e.target===dialog.current)setReward(null)}}>{reward&&<div className="dialog-content"><button className="close-button" onClick={()=>setReward(null)} aria-label="Close reward"><X size={21}/></button><div className="dialog-stone"><img src={'/game/'+OFFERS[reward.index].slug+'-stone.png'} alt=""/></div><p className="eyebrow">REWARD UNLOCKED</p><h2>{OFFERS[reward.index].name}</h2><p className="dialog-subtitle">Your next tasty adventure starts here.</p><div className="qr-frame"><img src={'data:image/svg+xml,'+encodeURIComponent(reward.qr)} alt={'QR code containing your '+OFFERS[reward.index].name+' reward code'} width="240" height="240"/></div><p className="qr-caption">SCAN TO READ YOUR REWARD CODE</p><div className="code-row"><code>{reward.code}</code><button onClick={copyCode} aria-label="Copy reward code">{copied?<Check size={19}/>:<Copy size={19}/>}</button></div><p className="copy-status" aria-live="polite">{copied?'Copied! Paste it into the Wendy’s app.':'Copy the code to redeem in the Wendy’s app.'}</p><a className="primary-button app-button" href="https://m-wendys.app.link/9B57RO3lj2b" target="_blank" rel="noreferrer">Open Wendy’s app <ExternalLink size={16}/></a><button className="download-button" onClick={downloadQr}><Download size={15}/> Save QR code</button><p className="redemption-note">QR stores the code as text; checkout scanning is not verified. Promotion terms and eligibility apply.</p></div>}</dialog></div>
+
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Check, Copy, ExternalLink, X } from "lucide-react";
+import { OFFERS } from "../lib/offers";
+
+type Availability = { status: "active" | "unavailable" | "ended"; message: string };
+type Reward = { code: string; index: number };
+const STORAGE_KEY = "freewendys-rewards-v1";
+
+export default function Home() {
+  const [selected, setSelected] = useState(0);
+  const [availability, setAvailability] = useState<Availability | null>(null);
+  const [checking, setChecking] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [reward, setReward] = useState<Reward | null>(null);
+  const [copyStatus, setCopyStatus] = useState("");
+  const [saved, setSaved] = useState<Record<number, Reward>>({});
+  const dialog = useRef<HTMLDialogElement>(null);
+  const claimButton = useRef<HTMLButtonElement>(null);
+
+  async function checkAvailability() {
+    setChecking(true);
+    setError("");
+    try {
+      const response = await fetch("/api/offers", { cache: "no-store" });
+      const data = await response.json() as Availability & { error?: string };
+      if (!response.ok) throw Error(data.error || "Could not check rewards. Please try again.");
+      setAvailability(data);
+    } catch (e) {
+      setAvailability(null);
+      setError(e instanceof Error ? e.message : "Connection lost. Please try again.");
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  useEffect(() => {
+    void checkAvailability();
+    try {
+      const prior = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      const codes: Record<number, Reward> = {};
+      OFFERS.forEach((_, index) => {
+        const code = prior?.[index]?.code;
+        if (typeof code === "string" && code) codes[index] = { code, index };
+      });
+      setSaved(codes);
+      if (Object.keys(codes).length) localStorage.setItem(STORAGE_KEY, JSON.stringify(codes));
+    } catch { /* Storage is optional. */ }
+  }, []);
+
+  useEffect(() => {
+    if (reward && !dialog.current?.open) dialog.current?.showModal();
+    if (!reward && dialog.current?.open) dialog.current.close();
+  }, [reward]);
+
+  function showReward(next: Reward) {
+    setCopyStatus("");
+    setReward(next);
+  }
+
+  async function claim() {
+    if (saved[selected]) { showReward(saved[selected]); return; }
+    if (busy || availability?.status !== "active") return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ index: selected }),
+      });
+      const data = await response.json() as { error?: string; status?: Availability["status"]; code?: string };
+      if (!response.ok || !data.code) {
+        const message = data.error || "This reward could not be claimed. Please try again.";
+        if (data.status) setAvailability({ status: data.status, message });
+        throw Error(message);
+      }
+      const next = { code: data.code, index: selected };
+      const all = { ...saved, [selected]: next };
+      setSaved(all);
+      showReward(next);
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(all)); } catch { /* Code remains visible. */ }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Connection lost. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyCode() {
+    if (!reward) return;
+    try {
+      await navigator.clipboard.writeText(reward.code);
+      setCopyStatus("Copied!");
+    } catch {
+      setCopyStatus("Select the code to copy it manually.");
+    }
+  }
+
+  const offer = OFFERS[selected];
+  const ready = availability?.status === "active";
+  const hasSaved = !!saved[selected];
+  const status = checking ? "Checking availability…" : ready ? "Promotion active" :
+    availability?.status === "ended" ? "Promotion ended" :
+    availability?.status === "unavailable" ? "Rewards unavailable" : "Connection unavailable";
+  const message = error || (!checking && !ready && availability?.message);
+
+  return (
+    <div className="site-shell">
+      <header className="header wrap">
+        <img src="/game/fries-stone.png" alt="" width="42" height="42" />
+        <h1>Free Wendy’s</h1>
+      </header>
+
+      <main className="reward-panel wrap" aria-labelledby="rewards-title">
+        <div className="panel-heading">
+          <h2 id="rewards-title">Choose your reward</h2>
+          <span className={ready ? "availability active" : "availability"} role="status"><i />{status}</span>
+        </div>
+        <div className="reward-grid" role="group" aria-label="Rewards">
+          {OFFERS.map((item, index) => (
+            <button key={item.slug} type="button"
+              className={selected === index ? "reward-card selected" : "reward-card"}
+              aria-pressed={selected === index} disabled={busy}
+              onClick={() => { setSelected(index); setError(""); }}
+              style={{ "--accent": item.color } as React.CSSProperties}>
+              {selected === index && <span className="selection-mark" aria-hidden="true"><Check size={13} strokeWidth={3} /></span>}
+              <img className="food-icon" src={"/game/" + item.slug + "-food.png"} alt="" width="90" height="90" />
+              <span className="card-name">{item.name}</span>
+              {saved[index] && <span className="saved-badge">Code saved</span>}
+            </button>
+          ))}
+        </div>
+        <div className="claim-bar">
+          <button ref={claimButton} className="primary-button" disabled={busy || (!hasSaved && (checking || !ready))} onClick={claim}
+            aria-label={busy ? "Claiming reward" : (hasSaved ? "View saved code for " : "Claim ") + offer.name}>
+            {busy ? "Claiming…" : hasSaved ? "View saved code" : "Claim reward"} {!busy && <ArrowRight size={17} />}
+          </button>
+        </div>
+        {message && <div className="message" role={error ? "alert" : "status"}>{message}
+          <button className="text-button" disabled={checking || busy} onClick={checkAvailability}>Check again</button>
+        </div>}
+      </main>
+
+      <footer className="footer wrap">
+        <span>Made with 🍔 by <a href="https://github.com/vracton/freewendys" target="_blank" rel="noreferrer">vracton</a></span>
+        <span>Not affiliated with or endorsed by Wendy’s.</span>
+      </footer>
+
+      <dialog ref={dialog} className="reward-dialog" aria-labelledby="reward-title"
+        onCancel={() => setReward(null)}
+        onClose={() => { setReward(null); claimButton.current?.focus(); }}
+        onClick={e => { if (e.target === dialog.current) setReward(null); }}>
+        {reward && (
+          <div className="dialog-content">
+            <button className="close-button" onClick={() => setReward(null)} aria-label="Close reward"><X size={21} /></button>
+            <img className="dialog-stone" src={"/game/" + OFFERS[reward.index].slug + "-stone.png"} alt="" width="50" height="50" />
+            <h2 id="reward-title">{OFFERS[reward.index].name}</h2>
+            <div className="code-row"><code>{reward.code}</code>
+              <button onClick={copyCode} aria-label="Copy reward code">{copyStatus === "Copied!" ? <Check size={17} /> : <Copy size={17} />} Copy</button>
+            </div>
+            <p className="copy-status" aria-live="polite">{copyStatus}</p>
+            <a className="primary-button app-button" href="https://m-wendys.app.link/9B57RO3lj2b" target="_blank" rel="noreferrer">
+              Open Wendy’s app <ExternalLink size={16} />
+            </a>
+          </div>
+        )}
+      </dialog>
+    </div>
+  );
 }

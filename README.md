@@ -18,12 +18,11 @@ Open the printed local URL. Browser requests go to this application's `/api/offe
 - Selection indices 0–4 map to upstream coupon types 1–5: fries, Frosty, spicy nuggets, breakfast, and beef.
 - A server-created upstream session is reused through a 30-day HttpOnly, SameSite cookie (Secure on HTTPS).
 - Promotion status is checked before retrieval; unavailable or ended promotions do not request coupons.
-- Successful reward codes and their QR representation are saved in the visitor's browser so the UI can reopen them.
-- QR codes contain the exact returned code as plain text. The original game redeems text codes in the Wendy’s app; checkout QR scanning is not verified.
+- Successful reward codes are saved in the visitor's browser so they can reopen them.
 - Exact menu items, sizes, eligibility, expiration, stock, and final redemption are controlled by the upstream promotion.
 - The MD5 request header reproduces the game protocol. Its embedded suffix is not an authentication or eligibility boundary; upstream authorization remains the server's responsibility.
 
-No third-party analytics, remote fonts, or external QR generation service is included.
+No third-party analytics, remote fonts is included.
 
 ## Validate
 
@@ -33,7 +32,7 @@ npx tsc --noEmit
 npm run build
 ```
 
-Tests use mocked upstream responses and do not consume real coupons. A live Frosty claim, code copying, saved-code persistence, mobile layout, and desktop layout were also verified during initial development.
+Tests use mocked upstream responses and do not consume real coupons.
 
 ## Hosting
 
