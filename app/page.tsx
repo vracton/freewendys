@@ -110,7 +110,9 @@ export default function Home() {
   return (
     <div className="site-shell">
       <header className="header wrap">
-        <img src="/game/fries-stone.png" alt="" width="42" height="42" />
+        <span className="brand-emblem" aria-hidden="true">
+          <img src="/game/fries-stone.png" alt="" width="36" height="36" />
+        </span>
         <h1>Free Wendy’s</h1>
       </header>
 
@@ -126,8 +128,10 @@ export default function Home() {
               aria-pressed={selected === index} disabled={busy}
               onClick={() => { setSelected(index); setError(""); }}
               style={{ "--accent": item.color } as React.CSSProperties}>
-              {selected === index && <span className="selection-mark" aria-hidden="true"><Check size={13} strokeWidth={3} /></span>}
-              <img className="food-icon" src={"/game/" + item.slug + "-food.png"} alt="" width="90" height="90" />
+              <span className="selection-mark" aria-hidden="true">{selected === index && <Check size={13} strokeWidth={3} />}</span>
+              <span className="food-stage">
+                <img className="food-icon" src={"/game/" + item.slug + "-food.png"} alt="" width="90" height="90" />
+              </span>
               <span className="card-name">{item.name}</span>
               {saved[index] && <span className="saved-badge">Code saved</span>}
             </button>
