@@ -149,8 +149,8 @@ export default function Home() {
       </main>
 
       <footer className="footer wrap">
-        <span>Made with 🍔 by <a href="https://github.com/vracton/freewendys" target="_blank" rel="noreferrer">vracton</a></span>
-        <span>Not affiliated with or endorsed by Wendy’s.</span>
+        <span className="footer-affiliation">Not affiliated with or endorsed by Wendy’s.</span>
+        <span className="footer-credit">Made with 🍔 by <a href="https://github.com/vracton/freewendys" target="_blank" rel="noreferrer">vracton</a></span>
       </footer>
 
       <dialog ref={dialog} className="reward-dialog" aria-labelledby="reward-title"

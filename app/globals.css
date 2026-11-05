@@ -28,6 +28,8 @@ button:focus-visible, a:focus-visible { outline: 3px solid var(--gold); outline-
 img { display: block; image-rendering: pixelated; }
 .wrap { width: min(1180px, calc(100% - 80px)); margin-inline: auto; }
 .site-shell {
+  display: flex;
+  flex-direction: column;
   min-height: 100dvh; padding-bottom: 32px; isolation: isolate; position: relative;
   background: radial-gradient(ellipse at 75% 15%, #19577955, transparent 44%),
     linear-gradient(180deg, #0c2b42, #0c2a40 65%, #081e30);
@@ -97,8 +99,23 @@ img { display: block; image-rendering: pixelated; }
 .primary-button:hover:not(:disabled) { filter: brightness(1.08); }
 .message { border: 1px solid #c1a87380; padding: 12px; margin-top: 18px; color: #ffdfb0; font-size: 12px; line-height: 1.6; }
 .text-button { padding: 4px; margin-left: 8px; color: var(--gold); border: 0; background: transparent; text-decoration: underline; }
-.footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 34px; color: var(--muted); font-size: 11px; }
+.footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 12px;
+  margin-top: auto;
+  padding-top: 34px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.footer-affiliation { grid-column: 2; text-align: center; }
+.footer-credit { grid-column: 3; text-align: right; }
 .footer a { color: var(--gold); }
+@media (max-width: 620px) {
+  .footer { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .footer-affiliation, .footer-credit { grid-column: 1; }
+}
 .reward-dialog {
   padding: 0; width: min(420px, calc(100% - 36px)); border: 1px solid #7495a4;
   color: var(--white); background: linear-gradient(145deg, #19445e, #133b54);
