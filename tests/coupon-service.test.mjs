@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import md5 from 'blueimp-md5';
+import {requestKey,getSession,promotion,retrieveCoupon,sessionFromRequest,jsonResponse} from '../lib/coupon-service.ts';
+const reply=(data)=>new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
+test('request signature matches the game UTC minute calculation',()=>{assert.equal(requestKey(new Date('2026-11-05T16:01:59Z')),md5('202611051601e67Y2i'))});
+test('existing browser session is reused without a server call',async()=>{assert.equal(await getSession('existing',()=>{throw Error('must not call')}),'existing')});
+test('session starts using the fixed session endpoint',async()=>{assert.equal(await getSession(undefined,async(url)=>{assert.equal(url.pathname,'/fresh-quest-coupons-prod/api/app/session');return reply({session_id:'fresh'})}),'fresh')});
+test('all five selections map to server types 1 through 5',async()=>{for(let i=0;i<5;i++){const calls=[];const code=await retrieveCoupon('sid with spaces',i,async(url,options)=>{calls.push(url);assert.equal(options.method,'GET');assert.ok(options.headers['X-Pmmf-Ac']);if(url.pathname.endsWith('app/init'))return reply({promotion_status:'1'});assert.equal(url.searchParams.get('session_id'),'sid with spaces');assert.equal(url.searchParams.get('type'),String(i+1));return reply({result:'successful',coupon_code:'TEST-CODE'})});assert.equal(code,'TEST-CODE');assert.equal(calls.length,2)}});
+test('unavailable and ended promotion never retrieve a code',async()=>{for(const status of ['2','3']){let calls=0;await assert.rejects(retrieveCoupon('sid',0,async()=>{calls++;return reply({promotion_status:status})}),e=>e.status===409);assert.equal(calls,1)}});
+test('invalid selection never contacts upstream',async()=>{for(const value of [-1,5,1.2,'0'])await assert.rejects(retrieveCoupon('sid',value,()=>{throw Error('must not call')}),e=>e.status===400)});
+test('failed coupon response is not treated as a successful code',async()=>{await assert.rejects(retrieveCoupon('sid',0,async url=>reply(url.pathname.endsWith('app/init')?{promotion_status:'1'}:{result:'failed'})),e=>e.status===409)});
+test('unknown promotion response fails closed',()=>assert.throws(()=>promotion({promotion_status:'unexpected'})));
+test('session cookie is HttpOnly, HTTPS secure, and never cacheable',()=>{const r=jsonResponse({},200,'a=b',new Request('https://example.com'));assert.match(r.headers.get('set-cookie'),/HttpOnly; SameSite=Lax/);assert.match(r.headers.get('set-cookie'),/; Secure/);assert.equal(r.headers.get('cache-control'),'no-store');assert.equal(sessionFromRequest(new Request('https://example.com',{headers:{cookie:'wq_session=a%3Db'}})),'a=b')});
